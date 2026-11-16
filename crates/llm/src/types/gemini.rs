@@ -1231,6 +1231,31 @@ mod tests {
 	}
 
 	#[test]
+	fn response_counts_tool_use_prompt_tokens_as_input() {
+		// Grounding reports its prompt tokens outside promptTokenCount, and totalTokenCount
+		// already includes them (10 + 5 + 20 + 3).
+		let resp = response(json!({
+			"usageMetadata": {
+				"promptTokenCount": 10,
+				"toolUsePromptTokenCount": 20,
+				"candidatesTokenCount": 5,
+				"thoughtsTokenCount": 3,
+				"totalTokenCount": 38
+			}
+		}));
+		let llm = resp.to_llm_response(Default::default());
+		assert_eq!(llm.input_tokens, Some(30));
+		assert_eq!(llm.output_tokens, Some(8));
+		assert_eq!(llm.total_tokens, Some(38));
+
+		// And the fallback total, when the provider omits it, stays consistent.
+		let resp = response(json!({
+			"usageMetadata": { "promptTokenCount": 10, "toolUsePromptTokenCount": 20, "candidatesTokenCount": 5 }
+		}));
+		assert_eq!(resp.to_llm_response(Default::default()).total_tokens, Some(35));
+	}
+
+	#[test]
 	fn response_serialize_preserves_unknown_fields() {
 		let raw = json!({
 			"candidates": [{
