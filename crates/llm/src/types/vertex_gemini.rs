@@ -396,6 +396,10 @@ pub struct UsageMetadata {
 	pub cached_content_token_count: Option<u64>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub thoughts_token_count: Option<u64>,
+	/// Prompt tokens consumed by built-in tools (Google Search grounding, URL context, ...).
+	/// Billed as input and included in `totalTokenCount`, but not in `promptTokenCount`.
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub tool_use_prompt_token_count: Option<u64>,
 	#[serde(flatten, default)]
 	pub rest: serde_json::Value,
 }
@@ -409,8 +413,12 @@ impl UsageMetadata {
 	/// provider includes reasoning in its output count — and Google bills thoughts at the
 	/// output rate. Normalize to the common convention: completion includes thoughts, with
 	/// `thoughtsTokenCount` still reported separately as the reasoning breakdown.
+	///
+	/// `toolUsePromptTokenCount` is likewise disjoint from `promptTokenCount` and billed as
+	/// input, so it is added to the prompt count.
 	pub fn counts(&self) -> (u64, u64, u64) {
-		let prompt = self.prompt_token_count.unwrap_or(0);
+		let prompt =
+			self.prompt_token_count.unwrap_or(0) + self.tool_use_prompt_token_count.unwrap_or(0);
 		let completion =
 			self.candidates_token_count.unwrap_or(0) + self.thoughts_token_count.unwrap_or(0);
 		let total = self.total_token_count.unwrap_or(prompt + completion);
